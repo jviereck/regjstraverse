@@ -1,0 +1,25 @@
+{
+  "name": "regjstraverse",
+  "version": "0.1.0",
+  "author": "'Julian Viereck' <julian.viereck@gmail.com>",
+  "license": "MIT",
+  "main": "./parser",
+  "bin": "bin/parser",
+  "homepage": "https://github.com/jviereck/regjstraverse",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:jviereck/regjstraverse.git"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "devDependencies": {
+    "mocha": "1.21.4",
+    "regjsparser": "0.1.2"
+  },
+  "files": [
+    "LICENSE",
+    "index.js",
+    "README.md"
+  ]
+}
