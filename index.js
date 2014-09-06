@@ -142,10 +142,13 @@ function replace(ast, funcs, customState) {
   // `this.__replaceWith`.
   var state = customState || new ReplaceState();
 
+  // Wrap the enter and leave functions to move the return values onto the
+  // state. This is necessary, as the `processNode` function assumes to find
+  // the replacement node on the state object.
   if (funcs.enter) {
     userEnterFn = funcs.enter.bind(state);
-    enterFn = function(node, parent, index) {
-      var res = userEnterFn.call(node, parent, index);
+    enterFn = function(node, parent) {
+      var res = userEnterFn(node, parent);
 
       // Move the return value onto the state.
       if (res !== null && res !== undefined && res !== BREAK && res !== SKIP) {
@@ -157,8 +160,8 @@ function replace(ast, funcs, customState) {
   }
   if (funcs.leave) {
     userLeaveFn = funcs.leave.bind(state);
-    leaveFn = function(node, parent, index) {
-      var res = userLeaveFn.call(node, parent, index);
+    leaveFn = function(node, parent) {
+      var res = userLeaveFn(node, parent);
 
       // Move the return value onto the state.
       if (res !== null && res !== undefined && res !== BREAK && res !== SKIP) {

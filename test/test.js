@@ -1,5 +1,6 @@
 var regjstraverse = require('../index');
 var traverse = regjstraverse.traverse;
+var replace = regjstraverse.replace;
 
 var regjsparser = require('regjsparser');
 var parse = regjsparser.parse;
@@ -131,5 +132,107 @@ describe('Traverse', function() {
       });
       assert.equal(state.didCallBreak(), true);
     });
+  });
+});
+
+describe('Replace', function() {
+  describe('simple replace on enter', function() {
+    it('should replace the root node', function() {
+      var ast = replace(parse('a'), {
+        enter: function(node, parent) {
+          if (parent === null) {
+            // Replace the entry with a class-range.
+            return parse('[a]');
+          }
+        }
+      });
+      assert.equal(ast.type, 'characterClass');
+      assert.equal(ast.raw, '[a]');
+    });
+
+    it ('should work the same with calling replace(...)', function() {
+      var ast = replace(parse('a'), {
+        enter: function(node, parent) {
+          if (parent === null) {
+            // Replace the entry with a class-range.
+            this.replace(parse('[a]'));
+          }
+        }
+      });
+      assert.equal(ast.type, 'characterClass');
+      assert.equal(ast.raw, '[a]');
+    });
+
+    it('should call replace on the replaced nodes', function() {
+      var rawValues = '';
+      var ast = replace(parse('a|b'), {
+        enter: function(node, parent) {
+          if (node.type === 'disjunction') {
+            return parse('c|d');
+          } else {
+            rawValues += node.raw;
+          }
+        }
+      });
+      assert.equal(ast.raw, 'c|d');
+      // Tests if `enter` was called on the replaced node.
+      assert.equal(rawValues, 'cd');
+    });
+
+    it('should replace characterClassRange', function() {
+      var ast = replace(parse('[a-b]'), {
+        enter: function(node, parent) {
+          if (node.type === 'value') {
+            return parse(node.raw === 'a' ? 'c' : 'd');
+          }
+        }
+      });
+      assert.deepEqual(ast.body[0].min, parse('c'));
+      assert.deepEqual(ast.body[0].max, parse('d'));
+    })
+  });
+
+  describe('simple replace on leave', function() {
+    it('should replace the root node', function() {
+      var ast = replace(parse('a'), {
+        leave: function(node, parent) {
+          if (parent === null) {
+            // Replace the entry with a class-range.
+            return parse('[a]');
+          }
+        }
+      });
+      assert.equal(ast.type, 'characterClass');
+      assert.equal(ast.raw, '[a]');
+    });
+
+    it('should call replace on the replaced nodes', function() {
+      var rawValues = '';
+      var ast = replace(parse('a|b'), {
+        leave: function(node, parent) {
+          if (node.type === 'disjunction') {
+            return parse('c|d');
+          } else {
+            rawValues += node.raw;
+          }
+        }
+      });
+      assert.equal(ast.raw, 'c|d');
+      // As the node is replaced on the leave, the rawValues are from
+      // the original ast.
+      assert.equal(rawValues, 'ab');
+    });
+
+    it('should replace characterClassRange', function() {
+      var ast = replace(parse('[a-b]'), {
+        leave: function(node, parent) {
+          if (node.type === 'value') {
+            return parse(node.raw === 'a' ? 'c' : 'd');
+          }
+        }
+      });
+      assert.deepEqual(ast.body[0].min, parse('c'));
+      assert.deepEqual(ast.body[0].max, parse('d'));
+    })
   });
 });
