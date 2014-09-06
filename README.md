@@ -31,7 +31,7 @@ var ast = require('regjsparser').parse('abc');
 `enter` and `leave` functions:
 
 ```js
-var regjstraverse = require('regjstraverse').traverse;
+var regjstraverse = require('regjstraverse');
 
 regjstraverse.traverse(ast, {
   enter: function(node) {
@@ -50,7 +50,7 @@ When traversing the nodes, it's possible to skip the sub-nodes of the current
 node by calling the `this.skip()` method or returning `regjstraverse.VisitorOption.Skip`:
 
 ```js
-var regjstraverse = require('regjstraverse').traverse;
+var regjstraverse = require('regjstraverse');
 
 regjstraverse.traverse(ast, {
   enter: function(node) {
@@ -74,7 +74,7 @@ regjstraverse.traverse(ast, {
 Breaking at the current point in the tree traversal is possible by invoking `break`:
 
 ```js
-var regjstraverse = require('regjstraverse').traverse;
+var regjstraverse = require('regjstraverse');
 
 regjstraverse.traverse(ast, {
   enter: function(node) {
@@ -96,7 +96,7 @@ calls to `enter` or `leave` are made afterwards.
 Replacing the current visited node is doable using the `replace` function:
 
 ```js
-var regjstraverse = require('regjstraverse').traverse;
+var regjstraverse = require('regjstraverse');
 var parse = require('regjsparser').parse;
 
 var newAst = regjstraverse.replace(ast, {
@@ -115,11 +115,14 @@ var newAst = regjstraverse.replace(ast, {
 of the new-replaced AST are visited. Example:
 
 ```js
+var regjstraverse = require('regjstraverse');
+var regjsparser = require('regjsparser');
+
 var rawValues = '';
 var ast = regjstraverse.replace(regjsparser.parse('a|b'), {
   enter: function(node, parent) {
     if (node.type === 'disjunction') {
-      return parse('c|d');
+      return regjsparser.parse('c|d');
     } else {
       // This visits the new replaced nodes `c` and `d` from above and not the
       // original `a` and `b` ones.
