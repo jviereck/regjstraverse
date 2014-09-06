@@ -7,40 +7,54 @@
 (function() {
 
 // Unique id
-var BREAK = 0;
-var SKIP = 1;
+var BREAK = {};
+var SKIP = {};
 
-function VisitState() {
+function TraverseState() {
   this.__doBreak = false;
   this.__doSkip = false;
 }
 
-VisitState.prototype.skip = function() {
+TraverseState.prototype.skip = function() {
   this.__doSkip = true;
 }
 
-VisitState.prototype.didCallSkip  = function() {
+TraverseState.prototype.didCallSkip  = function() {
   return this.__doSkip;
 }
 
-VisitState.prototype.break = function() {
+TraverseState.prototype.break = function() {
   this.__doBreak = true;
 }
 
-VisitState.prototype.didCallBreak  = function() {
+TraverseState.prototype.didCallBreak  = function() {
   return this.__doBreak;
+}
+
+function ReplaceState() {
+  TraverseState.call(this);
+  this.__replaceWith = null;
+}
+ReplaceState.prototype = new TraverseState();
+
+ReplaceState.prototype.replace = function(node) {
+  this.__replaceWith = node;
 }
 
 /**
  * Process a single node.
  * @returns {Boolean} Indicates if break was not called while processing `node`.
  */
-function processNode(node, parent, enterFn, leaveFn, state, index) {
-  var i, res, doSkip = false, body;
+function processNode(node, parent, enterFn, leaveFn, state) {
+  var i, res, doSkip = false, body, replaceWith = null, isCharacterClassRange;
 
   // Call the `enter` function on the `node` if defined.
   if (enterFn) {
-    res = enterFn(/* this=state here (see traverse fn) ,*/ node, parent, index);
+    res = enterFn(/* this=state here (see traverse fn) ,*/ node, parent);
+    if (state.__replaceWith) {
+      node = replaceWith = state.__replaceWith;
+      state.__replaceWith = null;
+    }
     if (res === BREAK || state.__doBreak === true) {
       state.__doBreak = true;
       return false /* break was called */;
@@ -56,12 +70,26 @@ function processNode(node, parent, enterFn, leaveFn, state, index) {
     // The body to process is either the body on the node OR the min/max
     // entry on the `characterClassRange`.
     body = node.body;
-    if (node.type === 'characterClassRange') {
+    isCharacterClassRange = node.type === 'characterClassRange';
+    if (isCharacterClassRange) {
       body = [node.min, node.max];
     }
     if (body /* there are child nodes to inspect */) {
       for (i = 0; i < body.length; i++) {
-        if (!processNode(body[i], node, enterFn, leaveFn, state)) {
+        res = processNode(body[i], node, enterFn, leaveFn, state);
+        if (state.__replaceWith) {
+          if (isCharacterClassRange) {
+            if (i === 0) {
+              node.min = state.__replaceWith;
+            } else {
+              node.max = state.__replaceWith;
+            }
+          } else {
+            body[i] = state.__replaceWith;
+          }
+          state.__replaceWith = null;
+        }
+        if (!res) {
           return false;
         }
       }
@@ -70,7 +98,10 @@ function processNode(node, parent, enterFn, leaveFn, state, index) {
 
   // Call the `leave` function on the `node` if defined.
   if (leaveFn) {
-    res = leaveFn(/* this=state here (see traverse fn) ,*/ node, parent, index);
+    res = leaveFn(/* this=state here (see traverse fn) ,*/ node, parent);
+    if (state.__replaceWith) {
+      replaceWith = state.__replaceWith;
+    }
     if (res === BREAK || state.__doBreak === true) {
       state.__doBreak = true;
       return false /* break was called */;
@@ -80,13 +111,14 @@ function processNode(node, parent, enterFn, leaveFn, state, index) {
   // Reset the skip flag. Do this at the very end after calling `funcs.leave`
   // as the leave function might invoke skip, which should have no effect.
   state.__doSkip = false;
+  state.__replaceWith = replaceWith;
 
   return true /* break was not called */;
 }
 
-function traverse(ast, funcs) {
+function traverse(ast, funcs, customState) {
   var enterFn, leaveFn;
-  var state = new VisitState();
+  var state = customState || new VisitState();
 
   // Bind the `state` as the first argument of the function. Binding the
   // `this` variable instead of using `funcs.enterFn.call(state,...)` for
@@ -96,12 +128,52 @@ function traverse(ast, funcs) {
 
   // Kick off the traversal from the top node.
   processNode(ast, null, enterFn, leaveFn, state);
-  return state;
 }
 
-function replace(ast, funcs) {
-  // Reusing the travser function in here. Wrapping the `enter` and `leave`
-  // from `funcs` to perform the replacement in case a node is returned.
+/**
+ * Replace a single node.
+ * @returns {Boolean} Indicates if break was not called while processing `node`.
+ */
+function replace(ast, funcs, customState) {
+  var enterFn, leaveFn, userEnterFn, userLeaveFn;
+
+  // Using a different kind of state here as in the `traverse` function.
+  // This state allows the call to `replace` and has a new property
+  // `this.__replaceWith`.
+  var state = customState || new ReplaceState();
+
+  if (funcs.enter) {
+    userEnterFn = funcs.enter.bind(state);
+    enterFn = function(node, parent, index) {
+      var res = userEnterFn.call(node, parent, index);
+
+      // Move the return value onto the state.
+      if (res !== null && res !== undefined && res !== BREAK && res !== SKIP) {
+        this.__replaceWith = res;
+      }
+      return res;
+    }
+    enterFn = enterFn.bind(state);
+  }
+  if (funcs.leave) {
+    userLeaveFn = funcs.leave.bind(state);
+    leaveFn = function(node, parent, index) {
+      var res = userLeaveFn.call(node, parent, index);
+
+      // Move the return value onto the state.
+      if (res !== null && res !== undefined && res !== BREAK && res !== SKIP) {
+        this.__replaceWith = res;
+      }
+      return res;
+    }
+    leaveFn = leaveFn.bind(state);
+  }
+  processNode(ast, null, enterFn, leaveFn, state);
+  if (state.__replaceWith) {
+    return state.__replaceWith;
+  } else {
+    return ast;
+  }
 }
 
 var regjstraverse = {
@@ -110,7 +182,9 @@ var regjstraverse = {
   VisitorOption: {
     Break: BREAK,
     Skip: SKIP
-  }
+  },
+  ReplaceState: ReplaceState,
+  TraverseState: TraverseState
 }
 
 if (typeof module !== 'undefined' && module.exports) {

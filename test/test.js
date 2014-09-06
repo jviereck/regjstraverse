@@ -6,6 +6,7 @@ var parse = regjsparser.parse;
 
 var assert = require("assert");
 
+// Used to test the traverse function.
 function assertCountType(ast, typeName, expectedCount, enterFn, leaveFn) {
   var enterCounter = 0, leaveCounter = 0;
   var expectedEnterCounter, expectedLeaveCounter;
@@ -17,7 +18,8 @@ function assertCountType(ast, typeName, expectedCount, enterFn, leaveFn) {
     expectedEnterCounter = expectedLeaveCounter = expectedCount;
   }
 
-  var state = traverse(ast, {
+  var state = new regjstraverse.TraverseState();
+  traverse(ast, {
     enter: function(node, parent) {
       if (node.type === typeName) {
         enterCounter ++;
@@ -34,7 +36,7 @@ function assertCountType(ast, typeName, expectedCount, enterFn, leaveFn) {
         return leaveFn.call(this, node, parent)
       }
     }
-  });
+  }, state);
   // Check the number of leaves and enter counted node types is the same.
   assert.equal(leaveCounter, expectedLeaveCounter);
   assert.equal(enterCounter, expectedEnterCounter);
