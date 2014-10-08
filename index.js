@@ -118,7 +118,7 @@ function processNode(node, parent, enterFn, leaveFn, state) {
 
 function traverse(ast, funcs, customState) {
   var enterFn, leaveFn;
-  var state = customState || new VisitState();
+  var state = customState || new TraverseState();
 
   // Bind the `state` as the first argument of the function. Binding the
   // `this` variable instead of using `funcs.enterFn.call(state,...)` for

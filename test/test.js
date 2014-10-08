@@ -46,6 +46,23 @@ function assertCountType(ast, typeName, expectedCount, enterFn, leaveFn) {
 
 describe('Traverse', function() {
   describe('simple traverse', function() {
+    it('should work without passing a TraverseState as third argument', function() {
+      var enterCounter = 0;
+      var leaveCounter = 0;
+
+      traverse(parse('abc'), {
+        enter: function(node, parent) {
+          enterCounter += 1;
+        },
+        leave: function(node, parent) {
+          leaveCounter += 1;
+        }
+      });
+
+      assert.equal(enterCounter, 4);
+      assert.equal(leaveCounter, 4);
+    });
+
     it('should count simple values correctly', function() {
       assertCountType(parse('abc'), 'value', 3);
       assertCountType(parse('a|b|c'), 'value', 3);
