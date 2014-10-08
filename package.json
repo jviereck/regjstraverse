@@ -1,6 +1,6 @@
 {
   "name": "regjstraverse",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "'Julian Viereck' <julian.viereck@gmail.com>",
   "license": "MIT",
   "main": "./parser",
